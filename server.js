@@ -47,7 +47,7 @@ app.get('/api/books', function (req, res) {
 
 // get one book
 app.get('/api/books/:id', function (req, res) {
-  db.Books.findOne({_id: req.params._id }, function(err, data) {
+  db.Book.findOne({_id: req.params.id }, function(err, data) {
     res.json(data);
   });
 });
@@ -87,11 +87,62 @@ app.delete('/api/books/:id', function (req, res) {
   console.log('books delete', req.params);
   var bookId = req.params.id;
   // find the index of the book we want to remove
-  db.Book.findOneAndRemove({ _id: bookId }, function (err, deletedBook) {
+  db.Book.findOneAndRemove({ _id: bookId })
+    .populate('author')
+    .exec(function (err, deletedBook) {
     res.json(deletedBook);
   });
 });
 
+
+// Create a character associated with a book
+app.post('/api/books/:book_id/characters', function (req, res) {
+  // Get book id from url params (`req.params`)
+  var bookId = req.params.book_id;
+  db.Book.findById(bookId)
+    .populate('author')
+    .exec(function(err, foundBook) {
+      console.log(foundBook);
+      if (err) {
+        res.status(500).json({error: err.message});
+      } else if (foundBook === null) {
+        // Is this the same as checking if the foundBook is undefined?
+        res.status(404).json({error: "No Book found by this ID"});
+      } else {
+        // push character into characters array
+        foundBook.characters.push(req.body);
+        // save the book with the new character
+        foundBook.save();
+        res.status(201).json(foundBook);
+      }
+    });
+});
+
+
+// Delete a character associated with a book
+app.delete('/api/books/:book_id/characters/:character_id', function (req, res) {
+  // Get book id from url params (`req.params`)
+  var bookId = req.params.book_id;
+  var characterId = req.params.character_id;
+  db.Book.findById(bookId)
+    .populate('author')
+    .exec(function(err, foundBook) {
+      if (err) {
+        res.status(500).json({error: err.message});
+      } else if (foundBook === null) {
+        res.status(404).json({error: "No Book found by this ID"});
+      } else {
+        // find the character by id
+        var deletedCharacter = foundBook.characters.id(characterId);
+        // delete the found character
+        deletedCharacter.remove();
+        // save the found book with the character deleted
+        foundBook.save();
+        // send back the found book without the character
+        res.json(foundBook);
+      }
+    });
+});
 
 
 
